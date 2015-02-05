@@ -1,6 +1,7 @@
-# AmazonGlacier_DataBroker_PlugIn
+# AWS_DataBroker_PlugIn
 
-Amazon Glacier DataBroker PlugIn permits the storage of content within Amazon Glacier online backup server.
+AWS DataBroker PlugIn permits:
+* the storage of content within Amazon Glacier online backup server.
 
 License
 =======
