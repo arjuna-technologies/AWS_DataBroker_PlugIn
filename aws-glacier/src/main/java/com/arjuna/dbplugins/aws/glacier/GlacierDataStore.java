@@ -4,6 +4,7 @@
 
 package com.arjuna.dbplugins.aws.glacier;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -11,6 +12,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.glacier.AmazonGlacierClient;
+import com.amazonaws.services.glacier.transfer.ArchiveTransferManager;
 import com.arjuna.databroker.data.DataConsumer;
 import com.arjuna.databroker.data.DataFlow;
 import com.arjuna.databroker.data.DataProvider;
@@ -82,9 +87,23 @@ public class GlacierDataStore implements DataStore
     {
     }
 
-    public void store(String data)
+    public void store(File data)
     {
         logger.log(Level.FINE, "GlacierDataStore.store: data = " + data);
+
+        try
+        {
+            AWSCredentials      credentials = new BasicAWSCredentials(_properties.get(AWS_ACCESSKEYID_PROPERTYNAME), _properties.get(AWS_SECRETACCESSKEY_PROPERTYNAME));
+            AmazonGlacierClient client      = new AmazonGlacierClient(credentials);
+            client.setEndpoint(_properties.get(GLACIER_ENDPOINTURL_PROPERTYNAME));
+
+            ArchiveTransferManager atm = new ArchiveTransferManager(client, credentials);
+            atm.upload(_properties.get(GLACIER_VAULTNAME_PROPERTYNAME), "", data);
+        }
+        catch (Throwable throwable)
+        {
+            logger.log(Level.WARNING, "Unable to store to AmazonGlacier", throwable);
+        }
     }
 
     @Override
@@ -92,7 +111,7 @@ public class GlacierDataStore implements DataStore
     {
         Set<Class<?>> dataConsumerDataClasses = new HashSet<Class<?>>();
 
-        dataConsumerDataClasses.add(String.class);
+        dataConsumerDataClasses.add(File.class);
         
         return dataConsumerDataClasses;
     }
@@ -101,7 +120,7 @@ public class GlacierDataStore implements DataStore
     @SuppressWarnings("unchecked")
     public <T> DataConsumer<T> getDataConsumer(Class<T> dataClass)
     {
-        if (dataClass == String.class)
+        if (File.class.isAssignableFrom(dataClass))
             return (DataConsumer<T>) _dataConsumer;
         else
             return null;
@@ -121,7 +140,7 @@ public class GlacierDataStore implements DataStore
     @SuppressWarnings("unchecked")
     public <T> DataProvider<T> getDataProvider(Class<T> dataClass)
     {
-        if (dataClass == String.class)
+        if (String.class.isAssignableFrom(dataClass))
             return (DataProvider<T>) _dataProvider;
         else
             return null;
