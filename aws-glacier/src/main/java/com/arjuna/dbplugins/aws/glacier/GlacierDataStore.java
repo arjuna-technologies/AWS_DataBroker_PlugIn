@@ -150,7 +150,7 @@ public class GlacierDataStore implements DataStore
     private Map<String, String>  _properties;
     private DataFlow             _dataFlow;
     @DataConsumerInjection(methodName="store")
-    private DataConsumer<String> _dataConsumer;
+    private DataConsumer<File>   _dataConsumer;
     @DataProviderInjection
     private DataProvider<String> _dataProvider;
 }
