@@ -42,5 +42,10 @@
             <artifactId>aws-java-sdk-glacier</artifactId>
             <version>${version.com.amazonaws.aws-java-sdk-glacier}</version>
         </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
