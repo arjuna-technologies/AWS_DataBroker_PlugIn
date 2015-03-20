@@ -4,17 +4,24 @@
 
 package com.arjuna.dbplugins.aws.glacier;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.glacier.AmazonGlacierClient;
+import com.amazonaws.services.glacier.TreeHashGenerator;
+import com.amazonaws.services.glacier.model.UploadArchiveRequest;
+import com.amazonaws.services.glacier.model.UploadArchiveResult;
 import com.amazonaws.services.glacier.transfer.ArchiveTransferManager;
 import com.arjuna.databroker.data.DataConsumer;
 import com.arjuna.databroker.data.DataFlow;
@@ -87,9 +94,9 @@ public class GlacierDataStore implements DataStore
     {
     }
 
-    public void store(File data)
+    public void storeFile(File data)
     {
-        logger.log(Level.FINE, "GlacierDataStore.store: data = " + data);
+        logger.log(Level.FINE, "GlacierDataStore.store: data(file) = " + data);
 
         try
         {
@@ -97,8 +104,32 @@ public class GlacierDataStore implements DataStore
             AmazonGlacierClient client      = new AmazonGlacierClient(credentials);
             client.setEndpoint(_properties.get(GLACIER_ENDPOINTURL_PROPERTYNAME));
 
-            ArchiveTransferManager atm = new ArchiveTransferManager(client, credentials);
-            atm.upload(_properties.get(GLACIER_VAULTNAME_PROPERTYNAME), "", data);
+            ArchiveTransferManager archiveTransferManager = new ArchiveTransferManager(client, credentials);
+            archiveTransferManager.upload(_properties.get(GLACIER_VAULTNAME_PROPERTYNAME), "", data);
+        }
+        catch (Throwable throwable)
+        {
+            logger.log(Level.WARNING, "Unable to store to AmazonGlacier", throwable);
+        }
+    }
+
+    public void storeBytes(byte[] data)
+    {
+        logger.log(Level.FINE, "GlacierDataStore.store: data(bytes) = " + data);
+
+        try
+        {
+            AWSCredentials      credentials = new BasicAWSCredentials(_properties.get(AWS_ACCESSKEYID_PROPERTYNAME), _properties.get(AWS_SECRETACCESSKEY_PROPERTYNAME));
+            AmazonGlacierClient client      = new AmazonGlacierClient(credentials);
+            client.setEndpoint(_properties.get(GLACIER_ENDPOINTURL_PROPERTYNAME));
+
+            UploadArchiveRequest uploadArchiveRequest = new UploadArchiveRequest();
+            uploadArchiveRequest.withVaultName(_properties.get(GLACIER_VAULTNAME_PROPERTYNAME));
+            uploadArchiveRequest.withChecksum(TreeHashGenerator.calculateTreeHash(Arrays.<byte[]>asList(data)));
+            uploadArchiveRequest.withBody(new ByteArrayInputStream(data));
+            uploadArchiveRequest.withContentLength((long) data.length);
+
+            UploadArchiveResult uploadArchiveResult = client.uploadArchive(uploadArchiveRequest);
         }
         catch (Throwable throwable)
         {
@@ -121,7 +152,9 @@ public class GlacierDataStore implements DataStore
     public <T> DataConsumer<T> getDataConsumer(Class<T> dataClass)
     {
         if (File.class.isAssignableFrom(dataClass))
-            return (DataConsumer<T>) _dataConsumer;
+            return (DataConsumer<T>) _dataConsumerFile;
+        else if (byte[].class.isAssignableFrom(dataClass))
+            return (DataConsumer<T>) _dataConsumerBytes;
         else
             return null;
     }
@@ -132,6 +165,7 @@ public class GlacierDataStore implements DataStore
         Set<Class<?>> dataProviderDataClasses = new HashSet<Class<?>>();
 
         dataProviderDataClasses.add(String.class);
+        dataProviderDataClasses.add(byte[].class);
         
         return dataProviderDataClasses;
     }
@@ -149,8 +183,10 @@ public class GlacierDataStore implements DataStore
     private String               _name;
     private Map<String, String>  _properties;
     private DataFlow             _dataFlow;
-    @DataConsumerInjection(methodName="store")
-    private DataConsumer<File>   _dataConsumer;
+    @DataConsumerInjection(methodName="storeFile")
+    private DataConsumer<File>   _dataConsumerFile;
+    @DataConsumerInjection(methodName="storeBytes")
+    private DataConsumer<byte[]> _dataConsumerBytes;
     @DataProviderInjection
     private DataProvider<String> _dataProvider;
 }
